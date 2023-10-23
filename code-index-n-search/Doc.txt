@@ -1,0 +1,178 @@
+///  Клас FileIndexer
+///  Відповідає за індексацію файлів на комп'ютері. Працює в окремому потоці та може бути призупинений або зупинений користувачем.
+
+class FileIndexer {
+public:
+    ///  indexPath - шлях до індексного файлу.
+    ///  indexlabel - об'єкт QLabel для відображення статусу.
+    ///  stopRequested - посилання на флаг для керування процесом індексації.
+    
+    ///   Розпочинає процес індексації з кореневого каталогу.
+    void StartIndexing();
+
+    ///   Призупиняє процес індексації.
+    void PauseIndexing();
+
+    ///   Зупиняє процес індексації.
+    void StopIndexing();
+
+    ///   Повертає true, якщо процес індексації призупинений, інакше false.
+    bool isPaused();
+
+    ///   Поновлює процес індексації після призупинення.
+    void ResumeIndexing();
+
+    void SaveFileMetadata(const QString& name, const QDateTime& date, qint64 size, const QString& path);
+    ///   Зберігає метадані про індексований файл.
+    ///
+    ///  name - ім'я файлу.
+    ///  date - дата останньої модифікації файлу.
+    ///  size - розмір файлу.
+    ///  path - шлях до файлу.
+    
+
+private:
+    std::string indexPath;  /// Шлях до індексного файлу.
+    QLabel* indexlabel;  /// Об'єкт для відображення імені індексованого файлу.
+    bool stopRequested;  /// Для зупинки керування процесом індексації.
+    QMutex mutex;  /// Об'єкт для синхронізації потоків.
+    QWaitCondition condition;  /// Об'єкт для управління потоками.
+};
+
+///  Клас FileIndexerThread
+///  Використовується для створення окремого потоку для індексації файлів.
+///
+class FileIndexerThread : public QThread {
+public:
+
+    ///  indexPath - шлях до індексного файлу.
+    ///  indexlabel - Об'єкт для відображення імені індексованого файлу.
+    ///  stopRequested - Для зупинки керування процесом індексації.
+
+    ///   Запускає процес індексації в окремому потоці.
+    void run() override;
+
+    ///   Призупинює процес індексації.
+    void pause();
+
+    ///   Зупиняє процес індексації.
+    void stop();
+
+    ///   Поновлює процес індексації після призупинення.
+    void resume();
+
+private:
+    QString indexPath;  /// Шлях до індексного файлу.
+    QLabel *indexlabel;  ///  Об'єкт для відображення імені індексованого файлу.
+    FileIndexer *fileIndexer;  /// Екземпляр класу FileIndexer.
+    bool stopRequested;  /// Для зупинки керування процесом індексації.
+};
+
+///  Клас Interface
+///  Відповідає за графічний інтерфейс користувача та взаємодію з класами FileIndexer та SearchEngine.
+///
+class Interface : public QWidget {
+public:
+
+    ///   Конструктор класу Interface.
+    ///
+    ///  parent - вказівник на батьківський віджет.
+    Interface(QWidget *parent = nullptr);
+
+    ///   Деструктор класу Interface.
+    ///
+    ~Interface();
+
+    ///   Обробник події для кнопки "Почати індексацію".
+    void on_StartIndexingButton_clicked();
+
+    ///   Обробник події для кнопки "Призупинити індексацію".
+    void on_PauseIndexingButton_clicked();
+
+    ///   Обробник події для кнопки "Зупинити індексацію".
+    void on_StopIndexingButton_clicked();
+
+    ///   Обробник події для кнопки "Поновити індексацію".
+    void on_ResumeIndexingButton_clicked();
+
+    ///   Обробник події для кнопки "Пошук файлів".
+    void on_SearchButton_clicked();
+
+    ///   Обробник результатів пошуку та відображення їх на інтерфейсі.
+    ///
+    ///  results - результати пошуку файлів.
+    void handleSearchResults(const std::vector<std::string> &results);
+};
+
+///  Клас SearchEngine
+///   Клас SearchEngine відповідає за пошук файлів в індексі та на локальному комп'ютері.
+///
+class SearchEngine {
+public:
+    ///   Конструктор класу SearchEngine.
+    ///
+    ///  indexPath - шлях до індексного файлу.
+    ///  searchlabel - об'єкт QLabel для відображення статусу.
+    SearchEngine(const std::string &indexPath, QLabel *searchlabel);
+
+    ///   Пошук файлів за іменем в індексі та на локальному комп'ютері.
+    ///
+    ///  name - ім'я файлу.
+    /// повертає вектор рядків з результатами пошуку.
+    std::vector<std::string> SearchByName(const std::string &name);
+
+    ///   Пошук файлів за розширенням в індексі та на локальному комп'ютері.
+    ///
+    ///  extension - розширення файлу.
+    /// повертає вектор рядків з результатами пошуку.
+    std::vector<std::string> SearchByExtension(const std::string &extension);
+
+    ///   Пошук файлів за датою в індексі та на локальному комп'ютері.
+    ///
+    ///  date - дата файлу.
+    /// повертає  Вектор рядків з результатами пошуку.
+    std::vector<std::string> SearchByDate(const std::string &date);
+
+    ///   Пошук файлів за розміром в індексі та на локальному комп'ютері.
+    ///
+    ///  size - розмір файлу.
+    /// повертає вектор рядків з результатами пошуку.
+    std::vector<std::string> SearchBySize(long long size);
+
+    ///  Пошук файлів у вказаному каталозі та додавання їх до результатів в залежності від типу пошуку.
+    ///
+    ///  currentPath - поточний шлях для пошуку.
+    ///  searchTerm - рядок для пошуку.
+    ///  results - результати пошуку.
+    ///  searchType - тип пошуку.
+    void searchInDirectory(const std::string &currentPath, const std::string &searchTerm, std::vector<std::string> &results, SearchType searchType);
+};
+
+///  Клас SearchThread
+///  Використовується для створення окремого потоку для пошуку файлів.
+///
+class SearchThread : public QThread {
+    Q_OBJECT
+
+public:
+    ///   Конструктор класу SearchThread.
+    ///
+    ///  indexPath - шлях до індексного файлу.
+    ///  searchlabel - об'єкт QLabel для відображення статусу.
+    ///  request - рядок запиту для пошуку.
+    ///  SearchByCheck - тип пошуку (за іменем, розширенням тощо).
+    SearchThread(const std::string &indexPath, QLabel *searchlabel, const std::string &request, int SearchByCheck);
+
+    ///   Деструктор класу SearchThread.
+    ///
+    ~SearchThread();
+
+    ///   Запускає процес пошуку в окремому потоці.
+    void run() override;
+
+signals:
+    ///  Сигнал, який відправляється при завершенні пошуку.
+    ///
+    ///  results - результати пошуку.
+    void searchCompleted(const std::vector<std::string> &results);
+};
